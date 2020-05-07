@@ -1,4 +1,4 @@
-# Income Prediction
+# Income Prediction in R
 
 Click here to see full article - https://rpubs.com/Mr_President/income_prediction
 The raw file is attached above
