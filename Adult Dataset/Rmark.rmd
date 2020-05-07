@@ -1,0 +1,465 @@
+---
+title: "Adult Dataset Income Prediction using Simple Classification Techniques"
+author: "Rohit Amalnerkar"
+date: "10/12/2019"
+output: html_document 
+---
+
+**Data Set Information:**
+
+Extraction was done by Barry Becker from the 1994 Census database. The US Adult Census dataset is a repository of 48,842 entries extracted from the 1994 US Census database.
+Prediction task is to determine whether a person makes over 50K a year. 
+
+**Objective:**
+
+The main objective of the dataset is to classify people earning <=50k or >50k based on several explanatory factors affecting the income of a person like Age, Occupation, Education, etc.
+
+The methods we intend to use are:
+
+* Binary Logistic Regression
+* Decision Tree
+* Random Forest
+
+Data cleaning method used in this article is **kNN imputation using VIM library**
+
+
+**Understanding the Data set:**
+
+The Census Income dataset has 48,842 entries. Each entry contains the following information
+about an individual:
+
+* age:          The age of an individual
+  
+* workclass:     A general term to represent the employment status of an individual.
+                
+                * Private
+                * Self.emp.not.inc
+                * Self.emp.inc
+                * Federal.gov
+                * Local.gov
+                * State.gov
+                * Without.pay
+                * Never.worked.
+  
+* fnlwgt:        Final weight. In other words, this is the number of people the census believes
+                 the entry represents.
+
+* education:     The highest level of education achieved by an individual.
+                
+                 * Bachelors
+                 * Some.college
+                 * 11th
+                 * HS.grad
+                 * Prof.school
+                 * Assoc.acdm
+                 * Assoc.voc
+                 * 9th
+                 * 7th.8th
+                 * 12th
+                 * Masters
+                 * 1st.4th
+                 * 10th
+                 * Doctorate
+                 * 5th.6th
+                 * Preschool.
+               
+* education.num: The highest level of education achieved in numerical form.
+
+* marital.status: Marital status of an individual. Married.civ.spouse corresponds to a civilian spouse while Married.AF.spouse is a spouse in the Armed Forces.
+                 
+                 * Married.civ.spouse
+                 * Divorced
+                 * Never.married
+                 * Separated
+                 * Widowed
+                 * Married.spouse.absent
+                 * Married.AF.spouse
+                 
+* occupation: the general type of occupation of an individual
+
+                 * Tech.support
+                 * Craft.repair
+                 * Other.service
+                 * Sales
+                 * Exec.managerial
+                 * Prof.specialty
+                 * Handlers.cleaners
+                 * Machine.op.inspct
+                 * Adm.clerical
+                 * Farming.fishing
+                 * Transport.moving
+                 * Priv.house.serv
+                 * Protective.serv
+                 * Armed.Forces
+                 
+* relationship: Represents what this individual is relative to others. For example an
+individual could be a Husband. Each entry only has one relationship attribute and is
+somewhat redundant with marital status. We might not make use of this attribute at all
+                 
+                 * Wife
+                 * Own.child
+                 * Husband
+                 * Not.in.family
+                 * Other.relative
+                 * Unmarried.
+
+* race: Descriptions of an individual’s race
+                 
+                 * White
+                 * Asian.Pac.Islander
+                 * Amer.Indian.Eskimo
+                 * Other
+                 * Black
+
+* sex: the biological sex of the individual
+                
+                 * Male
+                 * Female
+
+* capital.gain: capital gains for an individual
+
+* capital.loss: capital loss for an individual
+
+* hours.per.week: the hours an individual has reported to work per week
+
+* native.country: country of origin for an individual
+                 
+                 * United.States
+                 * Cambodia
+                 * England
+                 * Puerto.Rico
+                 * Canada
+                 * Germany
+                 * Outlying.US(Guam.USVI.etc) 
+                 * India 
+                 * Japan 
+                 * Greece 
+                 * South
+                 * China 
+                 * Cuba 
+                 * Iran
+                 * Honduras 
+                 * Philippines 
+                 * Italy
+                 * Poland
+                 * Jamaica 
+                 * Vietnam 
+                 * Mexico 
+                 * Portugal
+                 * Ireland 
+                 * France 
+                 * Dominican.Republic
+                 * Laos
+                 * Ecuador 
+                 * Taiwan 
+                 * Haiti 
+                 * Columbia
+                 * Hungary 
+                 * Guatemala 
+                 * Nicaragua 
+                 * Scotland 
+                 * Thailand 
+                 * Yugoslavia
+                 * El.Salvador
+                 * Trinadad&Tobago
+                 * Peru
+                 * Hong 
+                 * Holand.Netherlands
+
+* the label: whether or not an individual makes more than $50,000 annually.
+                 
+                 * <=50k
+                 * >50k
+
+
+
+**Loading the data and performing EDA**
+
+```{r}
+adult<-read.csv("C:/Users/Rohit/Desktop/R/Data sets/adult.csv",header=T)
+# header = T : if file with header is given then we use this arg (will not include first row for calculations)
+#              if this arg is not added it will consider first row for calculations
+
+head(adult) # to check the first 6 observations in the data
+```
+
+
+**EDA of the dependent variable**
+
+The original dataset contains a distribution of 24.08% entries labeled with >50k and 75.91%
+entries labeled with <=50k. The following graphs and statistics pertain to the orignal dataset.
+
+```{r}
+
+library(ggplot2)
+barplot(table(adult$income),main = 'Income Classification',col='blue',ylab ='No. of people')
+```
+
+Let's check the summary of the data
+
+```{r}
+summary(adult)
+```
+Now as we can see some of the values in coloumns are marked as '?'
+
+Let us first convert these to NA while loading the data itself
+
+```{r}
+adult1<-read.csv("C:/Users/Rohit/Desktop/R/Data sets/adult.csv",na.strings = c("?","NA"))
+# This will replace '?' with 'NA'
+
+# Let's check summary again
+summary(adult1)
+
+```
+As you can see we have replaced missing values in our data marked as '?' with 'NA'
+
+Another way to check the number of NA's in our data coloumn wise
+
+```{r}
+colSums(is.na(adult1))
+
+```
+
+We can also check the structure of our data
+
+```{r}
+str(adult1)
+```
+
+**Concluding a few things before applying the various classification algorithms**
+
+It is observed that some variables are not self-explanatory. 
+
+*capital_gain* and *capital_loss* are income from other sources like investments other than salary which have no relevance here.
+
+The continuous variable *fnlwgt* represents final weight, which is the number of units in the target population that the responding unit represents. 
+
+The variable *education_num* stands for the number of years of education in total, which is a continuous representation of the discrete variable education. 
+
+The variable *relationship* represents the responding members’s role in the family. 
+
+For simplicity of this analysis, the following variables are removed *education.num*, *relationship*, *fnlwgt*, *capital.gain* and *capital.loss*
+
+```{r}
+adult1$capital.gain<-NULL
+adult1$capital.loss<-NULL
+adult1$fnlwgt<-NULL
+adult1$education.num<-NULL
+adult1$relationship<-NULL
+
+```
+
+### kNN imputation to replace NAs
+
+Here library(VIM) is required to impute missing values.
+kNN imputation is preferred over the conventional method of replacing with mean, median and mode as it is supposed to be more justified. It may occur that a person whose age is missing and earns >50k is alloted a median age which may not be true. kNN inputation will consider all the observations and based on the historical data will assign a better value.
+
+VIM stands for Visualization and imputation of missing values
+
+**Note: This may take a while based on sample size**
+
+```{r}
+library(VIM)
+# as it is observed only the following coloumns have NAs in them, we specifically perform kNN imputation on these 3 variables
+
+adult2<-kNN(adult1,variable = c("workclass","occupation","native.country"),k=sqrt(nrow(adult1)))
+
+colSums(is.na(adult2)) # to verify if NAs removed
+
+
+```
+
+This action also creates some dummy variables at the end of the data. You can check this by
+
+```{r}
+head(adult2)
+```
+
+So now we create another data set exculding the dummy variables
+
+```{r}
+adult3<-adult2[,1:10]
+
+head(adult3) # to verify if dummy variables removed
+
+dim(adult3) # gives the number of variables and coloumns in our dataset
+
+```
+
+### More EDA
+
+Let's check income with respect to age
+
+```{r}
+library(ggplot2)
+ggplot(adult3) + aes(x=as.numeric(age), group=income, fill=income) + 
+  geom_histogram(binwidth=1, color='black')+
+  labs(x="Age",y="Count",title = "Income w.r.t Age")
+
+```
+
+As we notice majority of the people make less than <50k a year. However, we observe people earning >50k are in their mid career. We make this hypothesis based on the age.
+
+Let's check the same for workclass
+```{r}
+barplot(table(adult3$workclass),main = 'Income Classification w.r.t workclass',col='blue',ylab ='No. of people')
+```
+
+We can conclude that people working in private sector earn significantly better than the ones in other classes.
+
+### Performing Logistic Regression
+
+**Dividing data in Training and Testing Datasets**
+
+Let's put 75% data in training and 25% in testing dataset
+```{r}
+library(caret) # classification and regression training
+index<-createDataPartition(adult3$age,p=0.75,list = F)
+# argument 'list=F' is added so that it takes only indexes of the observations and not make a list row wise
+train_adult<-adult3[index,]
+test_adult<-adult3[-index,]
+dim(train_adult)
+dim(test_adult)
+
+# model implementation
+adult_blr<-glm(income~.,data = train_adult,family = "binomial")
+# argument (family = "binomial") is necessary as we are creating a model with dichotomous result
+summary(adult_blr)
+
+# to check how well is our model built we need to calculate predicted porobabilities
+# also our calculated probabilities need to be classified
+# in order to do that we also need to decide the threshold that best classifies our predicted results
+
+train_adult$pred_prob_income<-fitted(adult_blr) 
+# this coloumn will have predicted probabilties of being 1
+head(train_adult) # run the command to check if the new coloumn is added
+
+library(ROCR) # receiver operating charecteristic
+pred<-prediction(train_adult$pred_prob_income,train_adult$income)
+# compares predicted values with actual values in training dataset
+
+perf<-performance(pred,"tpr","fpr")
+# stores the measures with respect to which we want to plot the ROC graph
+
+plot(perf,colorize=T,print.cutoffs.at=seq(0.1,by=0.05))
+# plots the ROC curve
+
+# we assign that threshold where sensitivity and specificity have almost similar values after observing the ROC graph
+train_adult$pred_income<-ifelse(train_adult$pred_prob_income<0.3,0,1) 
+# this coloumn will classify probabilities we calculated and classify them as 0 or 1 based on our threshold value (0.3) and store in this coloumn
+head(train_adult)
+```
+
+Creating confusion matrix and assesing the results:
+```{r}
+table(train_adult$income,train_adult$pred_income)
+dim(train_adult)
+accuracy<-(4506+15299)/24423;accuracy # formula- (TP+TN)/total possibilities
+
+
+sensitivity<-4506/(4506+1349);sensitivity # formula TP/(TP+FN)
+specificity<-15299/(15299+3269);specificity # formula TN/(TN+FP)
+
+
+```
+
+**Training dataset results:**
+
+Accuracy of 81.09% is fairly good. We can conclude model is good and also we observe the values of sensitivity and specificity are almost close.
+
+**Checking how well our model is built using test dataset:**
+
+```{r}
+
+test_adult$pred_prob_income<-predict(adult_blr,test_adult,type = "response")
+# an extra argument(type = "response") is required while using 'predict' function to generate response as probabilities
+# this argument is not required while using 'fitted'
+
+test_adult$pred_income<-ifelse(test_adult$pred_prob_income<0.3,0,1)
+# we take the same threshold to classify which we considered while classifying probabilities of training data
+head(test_adult)
+dim(test_adult)
+table(test_adult$income,test_adult$pred_income)
+accuracy<-(1549+5056)/8138;accuracy
+sensitivity<-1549/(1549+437);sensitivity
+specificity<-5056/(5056+1096);specificity
+
+```
+
+**To check how much of our predicted values lie inside the curve:**
+```{r}
+
+auc<-performance(pred,"auc")
+auc@y.values
+
+```
+
+We can conclude that we are getting an *accuracy* of 81.16% with 88.43% of our predicted values lying under the curve. Also our *misclassifcation rate* is 18.84%
+
+
+### Decision Tree
+We need to remove the extra coloumns we added while performing BLR before implementing Decision tree
+```{r}
+train_adult$pred_income<-NULL
+train_adult$pred_prob_income<-NULL
+test_adult$pred_income<-NULL
+test_adult$pred_prob_income<-NULL
+```
+We need the following libraries to perform Decision tree
+
+* library(rpart)
+* library(rpart.plot)
+
+rpart stands for Recursive partitioning and regression trees.
+
+rpart is used when both independent and dependent variables are continuous or categorical. 
+
+rpart automatically detects whether to perform regression or classification based on dependent variable. There is no need to specify.
+
+**Implementing Decision tree**
+```{r}
+library(rpart)
+tree_adult_model<-rpart(income~.,data = train_adult)
+
+test_adult$pred_income<-predict(tree_adult_model,test_adult,type = "class")
+# an extra argument (type = "class") is required to directly classify prediction into classes
+
+head(test_adult)
+table(test_adult$income,test_adult$pred_income)
+dim(test_adult)
+accuracy<-(1167+5548)/8138;accuracy
+```
+We are getting an *accuracy* of 82.51%
+
+
+**Here is how to plot the decision tree:**
+```{r}
+library(rpart.plot)
+rpart.plot(tree_adult_model,cex = 0.6) # cex argument was just to adjust the resolution
+
+```
+
+Consider any observation from testing dataset and take the corresponding boolean tests in the graph above to see the predicted class.
+
+### Random forest
+Here it is not required to split the data into training and testing
+```{r}
+library(randomForest)
+rf_adult_model<-randomForest(income~.,data = adult3)
+rf_adult_model
+```
+
+
+Here the *Out of Bag error* (OOB) gives us the *miscalssification rate* (MCR) of the model. In this case it comes out to be 16.42%, which gives us the *accuracy* of 83.58%
+
+**To check classwise error**
+```{r}
+plot(rf_adult_model)
+```
+
+Red line represents MCR of class <=50k, green line represents MCR of class >50k and black line represents overall MCR or OOB error. Overall error rate is what we are interested in which seems considerably good.
+
+### Conclusion
+
+After performing various classification techniques and taking into account their accuracies, we can conclude all the models had an accuracy ranging from 81% to 84%. Out of which *Random forest* gave a slightly better *accuracy* of 83.58%
