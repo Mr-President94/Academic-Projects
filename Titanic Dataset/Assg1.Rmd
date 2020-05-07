@@ -1,0 +1,238 @@
+---
+title: "Titanic Dataset Survival Prediction"
+author: "Rohit Amalnerkar"
+date: "4/23/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+**Dataset Information:**
+
+On April 15, 1912, during her maiden voyage, the Titanic sank after colliding with an iceberg, killing 1502 out of 2224 passengers and crew. This tragedy shocked the international community and lead to better safety regulations for ships. 
+One of the reasons that the shipwreck lead to such loss of life was that there were not enough lifeboats for the passengers and crew. Although there was some element of luck involved in surviving the sinking, some groups of people were more likely to survive than others, such as women, children, and the upper-class. 
+
+**Objective:**
+
+The main objective of the dataset is to Predict who survived the sinking ship by applying various Machine Learning Algorithms. o for dead 1 for survived.
+
+**Variable Description:** 
+
+VARIABLE DESCRIPTIONS:
+
+survival    - Survival
+                (0 = No; 1 = Yes)
+
+pclass       - Passenger Class
+                (1 = 1st; 2 = 2nd; 3 = 3rd)
+
+name        - Name
+
+sex          -   Sex
+
+age           - Age
+
+sibsp         - Number of Siblings/Spouses Aboard
+
+parch   -      Number of Parents/Children Aboard
+
+ticket        - Ticket Number
+
+fare           - Passenger Fare
+
+cabin         - Cabin
+
+embarked  - Port of Embarkation
+                  (C = Cherbourg; Q = Queenstown; S = Southampton)	
+
+**Loading the data:**
+```{r}
+library(readxl)
+titanic<-read_excel("C:/Users/Rohit/Downloads/Titanic.xls")
+head(titanic)
+```
+
+**Checking structture and dimensions:**
+```{r}
+str(titanic)
+dim(titanic)
+```
+
+**Removing unwanted variables which don't add any value to the data:**
+
+We find that the following variables hold no value and hence we remove them
+
+```{r}
+titanic$PassengerId<-NULL
+titanic$Name<-NULL
+titanic$Cabin<-NULL
+titanic$Ticket<-NULL
+```
+
+**Converting numeric columns to factor:**
+
+```{r}
+names<-c("Sex","Survived","Pclass","Embarked")
+titanic[,names]<-lapply(titanic[,names],as.factor)
+str(titanic)
+head(titanic)
+```
+
+**Checking for NAs and treating them:**
+
+```{r}
+colSums(is.na(titanic))
+
+# for Age
+median(titanic$Age,na.rm = T)
+titanic$Age[is.na(titanic$Age)]<-28 # replace NAs with the median value of Age
+```
+
+```{r}
+# for Embarked
+summary(titanic$Embarked)
+titanic$Embarked[is.na(titanic$Embarked)]<-"S" 
+# we assign "S" to the missing values as Class "S" has maximum votes in the data
+```
+
+```{r}
+# rechecking the NAs
+colSums(is.na(titanic))
+```
+
+**Dividing the Age columns into categories:**
+
+```{r}
+titanic$Age<-cut(titanic$Age,breaks = c(0,20,28,40,Inf),labels = c("c1","c2","c3","c4"))
+str(titanic)
+```
+
+**Scaling the Numeric columns:**
+```{r}
+names1<-c("Parch", "SibSp", "Fare")
+titanic[,names1]<-lapply(titanic[,names1], scale)
+
+summary(titanic)
+```
+
+**Splitting the data into training and testing:**
+```{r}
+set.seed(100)
+library(caret)
+index<-createDataPartition(titanic$Survived,p=0.70,list = F)
+training_titanic<-titanic[index,]
+testing_titanic<-titanic[-index,]
+
+dim(training_titanic)
+dim(testing_titanic)
+```
+
+
+#### Applying Logistic Regression:
+```{r}
+titanic_model<-glm(Survived~.,data = training_titanic,family = "binomial")
+summary(titanic_model)
+```
+
+In the summary we find that columns Parch and  Fare have no significance hence we remove them.
+
+```{r}
+training_titanic$Parch<-NULL
+training_titanic$Fare<-NULL
+testing_titanic$Parch<-NULL
+testing_titanic$Fare<-NULL
+```
+
+Running the model again:
+
+```{r}
+titanic_model<-glm(Survived~.,data = training_titanic,family = "binomial")
+summary(titanic_model)
+```
+
+Calculating predicted pribabilties for training set of Survived being equal to 1
+
+```{r}
+training_titanic$predicted_prob<-fitted(titanic_model)
+head(training_titanic)
+```
+
+Checking the ROC curve for cut-off:
+
+```{r}
+library(ROCR)
+pred<-prediction(training_titanic$predicted_prob,training_titanic$Survived)
+perf<-performance(pred,"tpr","fpr")
+plot(perf,colorize=T,print.cutoffs.at=seq(0.1,by=0.05))
+```
+
+After looking at the graph we assign cutoff as 0.45
+Hence we find the probabilties based on this cutoff
+
+```{r}
+# we add a new column which has survival as 0 or 1
+training_titanic$predicted_survived<-ifelse(training_titanic$predicted_prob<0.45,0,1)
+head(training_titanic)
+```
+
+Confusion matrix:
+
+```{r}
+table(training_titanic$Survived,training_titanic$predicted_survived)
+```
+
+Another way to get Accuracy and other measures is:
+
+```{r}
+# first we convert the predicted_survived column to factor
+training_titanic$predicted_survived<-as.factor(training_titanic$predicted_survived)
+
+library(caret)
+confusionMatrix(training_titanic$predicted_survived,training_titanic$Survived)
+```
+
+Applying the same logic for testing set:
+```{r}
+testing_titanic$predicted_prob<-predict(titanic_model,testing_titanic,type = "response")
+testing_titanic$predicted_survived<-ifelse(testing_titanic$predicted_prob<0.45,0,1)
+
+testing_titanic$predicted_survived<-as.factor(testing_titanic$predicted_survived)
+
+confusionMatrix(testing_titanic$predicted_survived,testing_titanic$Survived)
+```
+
+#### Applying Random Forest:
+
+```{r}
+# first we remove the extra columns we created
+training_titanic<-training_titanic[,1:6]
+testing_titanic<-testing_titanic[,1:6]
+
+library(randomForest)
+rf<-randomForest(Survived~.,data = training_titanic,ntree=60)
+
+pred_test_rf<-predict(rf,testing_titanic)
+
+confusionMatrix(pred_test_rf,testing_titanic$Survived)
+```
+
+#### Applying SVC:
+```{r}
+library(e1071)
+svc<-svm(Survived~.,data = training_titanic, kernel='poly', degree=3)
+pred_svc<-predict(svc,testing_titanic)
+confusionMatrix(pred_svc,testing_titanic$Survived)
+```
+
+
+#### Applying Naive Bayes:
+```{r}
+nvb<-naiveBayes(Survived~.,data = training_titanic)
+pred_nvb<-predict(nvb,testing_titanic)
+confusionMatrix(pred_nvb,testing_titanic$Survived)
+```
+
+**Conclusion:**
+
+We observe that the Support vector classifier yeilds us an accuracy of 82.71% and also the difference between sensitivity and specificity is less as compared the difference between them in random forest.
+Hence we conclude SVC model best for predicting the Survival class of the Titatnic data.
