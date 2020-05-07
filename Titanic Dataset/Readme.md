@@ -8,7 +8,7 @@ Objective:
 The main objective of the dataset is to Predict who survived the sinking ship by applying various Machine Learning Algorithms. o for dead 1 for survived.
 
 Some of the steps done were - 
-Converting some character variables to factor
-Understanding the significant variables from the summary of the Classification model
-Scaling the numeric columns
-Understanding Simple concepts of Libraries in R
+1. Converting some character variables to factor
+2. Understanding the significant variables from the summary of the Classification model
+3. Scaling the numeric columns
+4. Understanding Simple concepts of Libraries in R
